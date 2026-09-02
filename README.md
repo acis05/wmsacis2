@@ -1,4 +1,4 @@
-# GudangKu WMS V5
+# WMS ACIS V8
 
 MVP inventory/WMS cloud berbasis Next.js + PostgreSQL, disiapkan untuk GitHub dan Railway.
 
@@ -44,3 +44,12 @@ Halaman `/aolinx` adalah connector layer awal. Jangan commit Client Secret atau 
 
 ## Railway V6 migration safety
 Pada V6, `npm run start` akan menjalankan `npm run db:migrate` terlebih dahulu sebelum Next.js server aktif. Ini memastikan database runtime yang sama selalu memiliki tabel `products`, `locations`, `inventory`, dan tabel transaksi. Migration aman dijalankan berulang karena bersifat idempotent.
+
+
+## V9 — Responsive + Scan Action Hub
+- Layout responsif untuk desktop, tablet, dan HP.
+- Sidebar berubah menjadi menu hamburger di layar kecil.
+- Dashboard/cards/charts/forms menyesuaikan lebar viewport.
+- Halaman Scan menampilkan action hub setelah produk ditemukan.
+- Aksi dari scan: Terima Barang, Kirim Barang, Pindah Rak, Pindah Gudang, Stock Opname, dan Lihat Stok.
+- Produk hasil scan otomatis dipilih saat membuka form transaksi.

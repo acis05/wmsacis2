@@ -1,6 +1,6 @@
 {
-  "name": "gudangku-wms",
-  "version": "1.2.0",
+  "name": "wms-acis",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
