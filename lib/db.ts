@@ -100,6 +100,47 @@ CREATE TABLE IF NOT EXISTS packing_list_items(
 );
 CREATE INDEX IF NOT EXISTS idx_packing_lists_created_at ON packing_lists(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_packing_items_list ON packing_list_items(packing_list_id);
+
+CREATE TABLE IF NOT EXISTS app_accounts(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(180) NOT NULL,
+  account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK(account_status IN('ACTIVE','PAUSED','SUSPENDED')),
+  trial_started_at TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS app_roles(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE,
+  code VARCHAR(80) NOT NULL UNIQUE,
+  name VARCHAR(140) NOT NULL,
+  is_system BOOLEAN NOT NULL DEFAULT FALSE,
+  permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS app_users(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  name VARCHAR(140) NOT NULL,
+  company VARCHAR(160),
+  password_hash TEXT NOT NULL,
+  role_id UUID NOT NULL REFERENCES app_roles(id) ON DELETE RESTRICT,
+  is_super_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK(account_status IN('ACTIVE','PAUSED','SUSPENDED')),
+  trial_started_at TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  last_login_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE app_roles ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_app_users_email ON app_users(lower(email));
+INSERT INTO app_roles(code,name,is_system,permissions) VALUES('SUPERADMIN','Super Administrator',TRUE,'["*"]'::jsonb) ON CONFLICT(code) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS integration_settings(
   id VARCHAR(40) PRIMARY KEY,
   enabled BOOLEAN NOT NULL DEFAULT FALSE,

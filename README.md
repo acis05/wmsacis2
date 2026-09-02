@@ -82,3 +82,29 @@ Pada V6, `npm run start` akan menjalankan `npm run db:migrate` terlebih dahulu s
 - Preview dan cetak packing list.
 - Transaksi Barang Keluar yang sudah dipakai tidak dapat dimasukkan ke packing list lain.
 - Menghapus packing list tidak mengubah stok karena dokumen packing hanya mengelompokkan transaksi OUT yang sudah terjadi.
+
+## V14 - Login, Trial, Admin Trial & Hak Akses
+
+Tambahan V14:
+- Login dengan session cookie HttpOnly bertanda tangan.
+- Registrasi trial 7 hari melalui `/register`.
+- Super Admin dapat mengontrol trial di `/admin/trials` (extend 7/30 hari, suspend/aktifkan).
+- Menu `/access` untuk membuat Role + Permission dan user internal.
+- Menu sidebar otomatis mengikuti permission user.
+- Status Packing List dapat diubah langsung dari daftar atau detail/cetak tanpa mengirim ulang item packing.
+
+### Environment Variable baru
+Tambahkan pada Railway service WMS ACIS:
+
+```env
+AUTH_SECRET=isi-dengan-random-string-panjang
+SUPERADMIN_EMAIL=admin@acisapps.id
+SUPERADMIN_PASSWORD=password-yang-kuat
+```
+
+`SUPERADMIN_EMAIL` dan `SUPERADMIN_PASSWORD` dipakai untuk bootstrap Super Admin saat login pertama. Ganti contoh password sebelum production.
+
+### Trial
+User dapat klik **Mulai Trial Gratis 7 Hari** dari halaman login. Setelah 7 hari, akses operasional diblokir sampai trial diperpanjang/akun diaktifkan oleh Super Admin.
+
+Catatan hak akses: bila role seorang user diubah saat user tersebut sedang login, lakukan logout/login agar permission pada session cookie diperbarui.

@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import {requireApi} from "@/lib/auth-server";
 
 function baseSelect(){
   return `SELECT p.id,p.sku,p.name,p.barcode,p.category,p.unit,p.min_stock,p.is_active,
@@ -41,7 +42,7 @@ async function duplicateCheck(sku:string,barcode:string,id?:string){
   return '';
 }
 
-export async function POST(req:Request){
+export async function POST(req:Request){const auth=await requireApi("products.manage");if(auth.error)return auth.error;
   const b=await req.json();
   const sku=(b.sku||'').trim(),name=(b.name||'').trim(),barcode=(b.barcode||'').trim();
   if(!sku||!name)return Response.json({error:"SKU dan nama wajib"},{status:400});
@@ -55,7 +56,7 @@ export async function POST(req:Request){
   }
 }
 
-export async function PUT(req:Request){
+export async function PUT(req:Request){const auth=await requireApi("products.manage");if(auth.error)return auth.error;
   const b=await req.json();
   const id=(b.id||'').trim(),sku=(b.sku||'').trim(),name=(b.name||'').trim(),barcode=(b.barcode||'').trim();
   if(!id||!sku||!name)return Response.json({error:'ID, SKU, dan nama wajib'},{status:400});
@@ -65,7 +66,7 @@ export async function PUT(req:Request){
   return Response.json(r.rows[0]);
 }
 
-export async function DELETE(req:Request){
+export async function DELETE(req:Request){const auth=await requireApi("products.manage");if(auth.error)return auth.error;
   const id=new URL(req.url).searchParams.get('id')?.trim();
   if(!id)return Response.json({error:'ID produk wajib'},{status:400});
   const stock=await query(`SELECT COALESCE(SUM(qty),0)::int qty FROM inventory WHERE product_id=$1`,[id]);

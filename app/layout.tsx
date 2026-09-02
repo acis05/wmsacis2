@@ -1,5 +1,5 @@
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 
 export const metadata = {
   title: { default: "WMS ACIS", template: "%s | WMS ACIS" },
@@ -9,5 +9,5 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{children: React.ReactNode}>) {
-  return <html lang="id"><body><div className="shell"><Sidebar/><main className="main">{children}</main></div></body></html>;
+  return <html lang="id"><body><AppShell>{children}</AppShell></body></html>;
 }
