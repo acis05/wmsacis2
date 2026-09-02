@@ -78,4 +78,4 @@ CREATE INDEX IF NOT EXISTS idx_packing_account ON packing_lists(account_id);
 
 -- Tenant-specific AOLINX and warehouse rows are created on demand per account.
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode); CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC); CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);`);
-console.log('Migration V16 selesai: multi-tenant isolation + auth/trial/roles + packing list siap.'); await client.end();
+console.log('Migration V17 selesai: multi-tenant bootstrap + auth/trial/roles + packing list siap.'); await client.end();

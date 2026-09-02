@@ -118,3 +118,10 @@ Catatan hak akses: bila role seorang user diubah saat user tersebut sedang login
 
 ## V16 — Multi-tenant isolation
 Setiap akun/perusahaan trial memiliki `account_id` sendiri. Semua produk, gudang, rak, stok, transaksi, packing list, laporan, dan konfigurasi AOLINX difilter berdasarkan tenant. Akun trial baru dimulai dengan data operasional kosong. Data lama saat upgrade otomatis dikaitkan ke akun perusahaan pertama agar tidak hilang.
+
+
+## V17 - Fix registrasi trial
+- Memperbaiki error `there is no unique or exclusion constraint matching the ON CONFLICT specification`.
+- Schema bootstrap sekarang konsisten dengan multi-tenant V16.
+- Tidak lagi membuat gudang/AOLINX global saat bootstrap; tenant trial baru tetap kosong.
+- Menambahkan unique index case-insensitive untuk email user.
