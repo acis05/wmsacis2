@@ -1,0 +1,3 @@
+import {query} from '@/lib/db';
+export async function GET(){const r=await query(`SELECT id,enabled,client_id,database_id,last_sync_at,updated_at,(access_token IS NOT NULL) connected FROM integration_settings WHERE id='aolinx'`);return Response.json(r.rows[0]||{})}
+export async function POST(req:Request){const b=await req.json();await query(`UPDATE integration_settings SET enabled=$1,client_id=NULLIF($2,''),client_secret=COALESCE(NULLIF($3,''),client_secret),access_token=COALESCE(NULLIF($4,''),access_token),refresh_token=COALESCE(NULLIF($5,''),refresh_token),database_id=NULLIF($6,''),updated_at=NOW() WHERE id='aolinx'`,[!!b.enabled,b.client_id||'',b.client_secret||'',b.access_token||'',b.refresh_token||'',b.database_id||'']);return Response.json({ok:true})}

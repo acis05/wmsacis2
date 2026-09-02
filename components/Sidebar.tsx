@@ -1,3 +1,4 @@
-import Link from "next/link";
-const items = [["/","Dashboard"],["/products","Produk"],["/stock","Stok"],["/scan","Scan"],["/stock-opname","Stock Opname"],["/history","Riwayat"]];
-export default function Sidebar(){return <aside className="sidebar"><div className="brand"><span className="logo">▣</span><span>GudangKu <small className="muted">WMS</small></span></div><nav className="nav">{items.map(([href,label])=><Link key={href} href={href}>{label}</Link>)}</nav></aside>}
+"use client";
+import Link from 'next/link'; import {usePathname} from 'next/navigation';
+const items=[['/','▦','Dashboard'],['/products','▣','Produk'],['/stock','◫','Stok'],['/inbound','↓','Barang Masuk'],['/outbound','↑','Barang Keluar'],['/warehouse-transfer','⇄','Pindah Gudang'],['/rack-transfer','↔','Pindah Rak'],['/scan','⌁','Scan Barcode'],['/stock-opname','✓','Stock Opname'],['/warehouses','⌂','Gudang & Rak'],['/history','◷','Riwayat'],['/aolinx','⛓','AOLINX']] as const;
+export default function Sidebar(){const path=usePathname();return <aside className="sidebar"><div className="brand"><span className="logo">▦</span><div><span>GudangKu</span><small>Inventory WMS</small></div></div><nav className="nav">{items.map(([href,icon,label])=><Link className={path===href?'active':''} key={href} href={href}><span className="nav-icon">{icon}</span><span>{label}</span>{label==='AOLINX'&&<b className="nav-pill">API</b>}</Link>)}</nav><div className="sidebar-foot"><div className="avatar">AG</div><div><strong>Admin Gudang</strong><small>Administrator</small></div></div></aside>}

@@ -1,7 +1,7 @@
 import { query } from "@/lib/db";
 export async function GET(req:Request){
  const url=new URL(req.url); const q=url.searchParams.get("q")?.trim(); const barcode=url.searchParams.get("barcode")?.trim();
- let sql=`SELECT p.id,p.sku,p.name,p.barcode,p.category,p.unit,p.min_stock,COALESCE(SUM(i.qty),0)::int total_stock,STRING_AGG(DISTINCT l.name, ', ') FILTER (WHERE l.id IS NOT NULL) locations FROM products p LEFT JOIN inventory i ON i.product_id=p.id LEFT JOIN locations l ON l.id=i.location_id`;
+ let sql=`SELECT p.id,p.sku,p.name,p.barcode,p.category,p.unit,p.min_stock,COALESCE(SUM(i.qty),0)::int total_stock,STRING_AGG(DISTINCT COALESCE(w.name||' / ','')||l.name, ', ') FILTER (WHERE l.id IS NOT NULL) locations FROM products p LEFT JOIN inventory i ON i.product_id=p.id LEFT JOIN locations l ON l.id=i.location_id LEFT JOIN warehouses w ON w.id=l.warehouse_id`;
  const params:string[]=[]; const wh:string[]=[];
  if(barcode){params.push(barcode);wh.push(`p.barcode=$${params.length}`)}
  if(q){params.push(`%${q}%`);wh.push(`(p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length} OR p.barcode ILIKE $${params.length})`)}

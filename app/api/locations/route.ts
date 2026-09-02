@@ -1,3 +1,3 @@
-import { query } from "@/lib/db";
-export async function GET(){const r=await query("SELECT id,code,name FROM locations ORDER BY code");return Response.json(r.rows)}
-export async function POST(req:Request){const b=await req.json();if(!b.code||!b.name)return Response.json({error:"Kode dan nama wajib"},{status:400});const r=await query("INSERT INTO locations(code,name) VALUES($1,$2) RETURNING *",[b.code.trim(),b.name.trim()]);return Response.json(r.rows[0],{status:201})}
+import {query} from '@/lib/db';
+export async function GET(){const r=await query(`SELECT l.id,l.code,l.name,l.warehouse_id,w.name warehouse_name,w.code warehouse_code FROM locations l LEFT JOIN warehouses w ON w.id=l.warehouse_id ORDER BY w.name,l.code`);return Response.json(r.rows)}
+export async function POST(req:Request){const b=await req.json();if(!b.code||!b.name||!b.warehouse_id)return Response.json({error:'Kode, nama, dan gudang wajib'},{status:400});try{const r=await query(`INSERT INTO locations(code,name,warehouse_id) VALUES($1,$2,$3) RETURNING *`,[b.code.trim(),b.name.trim(),b.warehouse_id]);return Response.json(r.rows[0],{status:201})}catch{return Response.json({error:'Kode rak sudah digunakan'},{status:400})}}
