@@ -188,6 +188,41 @@ CREATE INDEX IF NOT EXISTS idx_packing_account ON packing_lists(account_id);
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
 CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);
+
+-- V18: pulihkan tenant untuk akun legacy/Super Admin tanpa memindahkan data tenant lain.
+DO $$
+DECLARE
+  legacy_account UUID;
+BEGIN
+  -- Prioritaskan tenant yang benar-benar sudah memiliki data operasional lama.
+  SELECT account_id INTO legacy_account
+  FROM (
+    SELECT account_id, COUNT(*) AS n FROM products WHERE account_id IS NOT NULL GROUP BY account_id
+    UNION ALL
+    SELECT account_id, COUNT(*) AS n FROM warehouses WHERE account_id IS NOT NULL GROUP BY account_id
+    UNION ALL
+    SELECT account_id, COUNT(*) AS n FROM stock_operations WHERE account_id IS NOT NULL GROUP BY account_id
+  ) x
+  GROUP BY account_id
+  ORDER BY SUM(n) DESC
+  LIMIT 1;
+
+  -- Jika belum ada data operasional, gunakan account tertua.
+  IF legacy_account IS NULL THEN
+    SELECT id INTO legacy_account FROM app_accounts ORDER BY created_at LIMIT 1;
+  END IF;
+
+  -- Instalasi benar-benar baru: buat tenant internal permanen untuk Super Admin.
+  IF legacy_account IS NULL THEN
+    INSERT INTO app_accounts(name,account_status,trial_started_at,trial_ends_at)
+    VALUES('WMS ACIS Internal','ACTIVE',NULL,NULL)
+    RETURNING id INTO legacy_account;
+  END IF;
+
+  UPDATE app_users
+  SET account_id=legacy_account, company=COALESCE(NULLIF(company,''),'WMS ACIS'), updated_at=NOW()
+  WHERE account_id IS NULL AND is_super_admin=TRUE;
+END $$;
 `;
 
 function getPool(): Pool {

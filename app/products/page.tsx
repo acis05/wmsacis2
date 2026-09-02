@@ -8,7 +8,7 @@ const empty={id:'',sku:'',name:'',barcode:'',category:'',unit:'pcs',min_stock:0,
 
 export default function Products(){
  const[items,setItems]=useState<EditableProduct[]>([]),[q,setQ]=useState(''),[msg,setMsg]=useState(''),[editing,setEditing]=useState<EditableProduct|null>(null),[open,setOpen]=useState(false);
- const load=()=>fetch('/api/products'+(q?'?q='+encodeURIComponent(q):'')).then(r=>r.json()).then(setItems);
+ const load=async()=>{const r=await fetch('/api/products'+(q?'?q='+encodeURIComponent(q):''));const j=await r.json();if(!r.ok){setItems([]);setMsg(j.error||'Gagal memuat produk');return}setItems(Array.isArray(j)?j:[])};
  useEffect(()=>{load()},[]);
  function add(){setEditing({...empty});setMsg('');setOpen(true)}
  function edit(p:EditableProduct){setEditing({...p});setMsg('');setOpen(true)}

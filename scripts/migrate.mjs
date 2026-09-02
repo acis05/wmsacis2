@@ -77,5 +77,37 @@ CREATE INDEX IF NOT EXISTS idx_locations_account ON locations(account_id);
 CREATE INDEX IF NOT EXISTS idx_packing_account ON packing_lists(account_id);
 
 -- Tenant-specific AOLINX and warehouse rows are created on demand per account.
-CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode); CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC); CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);`);
-console.log('Migration V17 selesai: multi-tenant bootstrap + auth/trial/roles + packing list siap.'); await client.end();
+CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode); CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC); CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);
+
+-- V18: kaitkan Super Admin legacy ke tenant yang menyimpan data lama.
+DO $$
+DECLARE
+  legacy_account UUID;
+BEGIN
+  SELECT account_id INTO legacy_account
+  FROM (
+    SELECT account_id, COUNT(*) AS n FROM products WHERE account_id IS NOT NULL GROUP BY account_id
+    UNION ALL
+    SELECT account_id, COUNT(*) AS n FROM warehouses WHERE account_id IS NOT NULL GROUP BY account_id
+    UNION ALL
+    SELECT account_id, COUNT(*) AS n FROM stock_operations WHERE account_id IS NOT NULL GROUP BY account_id
+  ) x
+  GROUP BY account_id
+  ORDER BY SUM(n) DESC
+  LIMIT 1;
+
+  IF legacy_account IS NULL THEN
+    SELECT id INTO legacy_account FROM app_accounts ORDER BY created_at LIMIT 1;
+  END IF;
+
+  IF legacy_account IS NULL THEN
+    INSERT INTO app_accounts(name,account_status,trial_started_at,trial_ends_at)
+    VALUES('WMS ACIS Internal','ACTIVE',NULL,NULL)
+    RETURNING id INTO legacy_account;
+  END IF;
+
+  UPDATE app_users
+  SET account_id=legacy_account, company=COALESCE(NULLIF(company,''),'WMS ACIS'), updated_at=NOW()
+  WHERE account_id IS NULL AND is_super_admin=TRUE;
+END $$;`);
+console.log('Migration V18 selesai: legacy tenant recovery + multi-tenant siap.'); await client.end();

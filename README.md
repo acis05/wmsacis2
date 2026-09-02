@@ -125,3 +125,9 @@ Setiap akun/perusahaan trial memiliki `account_id` sendiri. Semua produk, gudang
 - Schema bootstrap sekarang konsisten dengan multi-tenant V16.
 - Tidak lagi membuat gudang/AOLINX global saat bootstrap; tenant trial baru tetap kosong.
 - Menambahkan unique index case-insensitive untuk email user.
+
+
+## V18 - Legacy tenant recovery
+- Memulihkan account_id Super Admin lama ke tenant yang menyimpan data operasional lama.
+- Session lama dengan account_id kosong dihydrate dari database.
+- Trial baru tetap terisolasi dan mulai dari data kosong.
