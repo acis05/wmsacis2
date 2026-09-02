@@ -5,25 +5,41 @@ declare global {
   var __gudangkuPool: Pool | undefined;
 }
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DATABASE_URL belum diset");
+function getPool(): Pool {
+  if (global.__gudangkuPool) return global.__gudangkuPool;
+
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL belum diset. Tambahkan variable DATABASE_URL yang mengarah ke PostgreSQL Railway."
+    );
+  }
+
+  const pool = new Pool({
+    connectionString,
+    ssl:
+      process.env.NODE_ENV === "production"
+        ? { rejectUnauthorized: false }
+        : undefined,
+    max: 10,
+  });
+
+  // Cache pool pada proses Node agar koneksi tidak dibuat ulang tiap request.
+  global.__gudangkuPool = pool;
+  return pool;
 }
 
-export const db = global.__gudangkuPool ?? new Pool({
-  connectionString,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
-  max: 10,
-});
-
-if (process.env.NODE_ENV !== "production") global.__gudangkuPool = db;
-
-export async function query<T extends QueryResultRow = QueryResultRow>(text: string, params: unknown[] = []) {
-  return db.query<T>(text, params);
+export async function query<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params: unknown[] = []
+) {
+  return getPool().query<T>(text, params);
 }
 
-export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await db.connect();
+export async function transaction<T>(
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     const result = await fn(client);

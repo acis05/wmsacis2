@@ -100,3 +100,17 @@ railway.json
 ```
 
 Jangan menaruh seluruh project di subfolder `gudangku-wms/` di dalam repository kecuali Railway `Root Directory` juga di-set ke subfolder tersebut.
+
+## Troubleshooting Railway: DATABASE_URL saat build
+
+Aplikasi memakai lazy database initialization. `DATABASE_URL` tidak dibaca saat modul di-import oleh `next build`, sehingga build dapat selesai tanpa koneksi database aktif.
+
+Namun `DATABASE_URL` tetap WAJIB tersedia untuk `npm run db:migrate` pada pre-deploy dan saat aplikasi berjalan.
+
+Di Railway, buka service aplikasi -> Variables lalu buat variable/reference:
+
+```text
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+```
+
+Nama service PostgreSQL bisa berbeda. Gunakan reference picker Railway agar nilainya menunjuk ke variable `DATABASE_URL` milik service PostgreSQL.
