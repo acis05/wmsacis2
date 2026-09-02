@@ -53,3 +53,17 @@ Pada V6, `npm run start` akan menjalankan `npm run db:migrate` terlebih dahulu s
 - Halaman Scan menampilkan action hub setelah produk ditemukan.
 - Aksi dari scan: Terima Barang, Kirim Barang, Pindah Rak, Pindah Gudang, Stock Opname, dan Lihat Stok.
 - Produk hasil scan otomatis dipilih saat membuka form transaksi.
+
+## V10 update
+- Pesan duplikasi produk kini membedakan SKU dan barcode/QR.
+- Daftar produk memiliki Edit dan Hapus (soft delete; stok harus 0).
+- Produk hasil scan otomatis terpilih saat membuka Barang Masuk, Barang Keluar, Pindah Rak, dan Pindah Gudang.
+- Scanner kamera mendukung barcode 1D dan QR Code melalui BarcodeDetector browser. QR dapat berisi nilai langsung, JSON (`barcode`/`sku`/`code`), atau URL dengan query `barcode`/`sku`/`code`.
+
+## V11 - Laporan Inventory
+- Menu Laporan lengkap untuk Barang Masuk, Barang Keluar, Pindah Gudang, dan Pindah Rak.
+- Kartu Stok dengan saldo sebelum/sesudah per mutasi.
+- Stok per Gudang.
+- Stok per Rak/Lokasi.
+- Filter tanggal, produk, gudang, rak, dan jenis transaksi.
+- Export CSV dari laporan yang sedang ditampilkan.

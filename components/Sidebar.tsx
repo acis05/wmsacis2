@@ -4,7 +4,7 @@ import Image from 'next/image';
 import {usePathname} from 'next/navigation';
 import {useEffect,useState} from 'react';
 
-const items=[['/','▦','Dashboard'],['/products','▣','Produk'],['/stock','◫','Stok'],['/inbound','↓','Barang Masuk'],['/outbound','↑','Barang Keluar'],['/warehouse-transfer','⇄','Pindah Gudang'],['/rack-transfer','↔','Pindah Rak'],['/scan','⌁','Scan Barcode'],['/stock-opname','✓','Stock Opname'],['/warehouses','⌂','Gudang & Rak'],['/history','◷','Riwayat'],['/aolinx','⛓','AOLINX']] as const;
+const items=[['/','▦','Dashboard'],['/products','▣','Produk'],['/stock','◫','Stok'],['/inbound','↓','Barang Masuk'],['/outbound','↑','Barang Keluar'],['/warehouse-transfer','⇄','Pindah Gudang'],['/rack-transfer','↔','Pindah Rak'],['/scan','⌁','Scan Barcode'],['/stock-opname','✓','Stock Opname'],['/warehouses','⌂','Gudang & Rak'],['/history','◷','Riwayat'],['/reports','▤','Laporan'],['/aolinx','⛓','AOLINX']] as const;
 
 export default function Sidebar(){
   const path=usePathname();

@@ -13,25 +13,32 @@ const actions=[
   {href:'/stock',icon:'◫',title:'Lihat Stok',desc:'Lihat detail stok per lokasi',tone:'slate'},
 ] as const;
 
+function normalizeScannedValue(raw:string){
+ const value=raw.trim(); if(!value)return '';
+ try{const j=JSON.parse(value);const v=j.barcode||j.sku||j.code||j.product||j.id;if(v)return String(v).trim()}catch{}
+ try{const u=new URL(value);const v=u.searchParams.get('barcode')||u.searchParams.get('sku')||u.searchParams.get('code')||u.searchParams.get('product');if(v)return v.trim()}catch{}
+ return value;
+}
+
 export default function Scan(){
  const videoRef=useRef<HTMLVideoElement>(null),streamRef=useRef<MediaStream|null>(null),timerRef=useRef<any>(null);
  const[code,setCode]=useState(''),[product,setProduct]=useState<Product|null>(null),[msg,setMsg]=useState(''),[running,setRunning]=useState(false),[busy,setBusy]=useState(false);
  useEffect(()=>()=>stopCamera(),[]);
- async function lookup(raw:string){const v=raw.trim();if(!v)return;setBusy(true);setCode(v);setMsg('');try{const r=await fetch('/api/products?barcode='+encodeURIComponent(v));const rows=await r.json();if(rows[0]){setProduct(rows[0]);return}const r2=await fetch('/api/products?q='+encodeURIComponent(v));const rows2=await r2.json();setProduct(rows2[0]||null);if(!rows2[0])setMsg('Produk tidak ditemukan. Tambahkan barcode di menu Produk.')}finally{setBusy(false)}}
- async function startCamera(){setMsg('');const BD=(window as any).BarcodeDetector;if(!BD){setMsg('Browser ini belum mendukung scan kamera native. Gunakan Chrome/Edge Android, scanner USB, atau input manual.');return}try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});streamRef.current=stream;if(videoRef.current){videoRef.current.srcObject=stream;await videoRef.current.play()}setRunning(true);const detector=new BD({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']});timerRef.current=setInterval(async()=>{if(!videoRef.current)return;try{const codes=await detector.detect(videoRef.current);if(codes?.[0]?.rawValue){await lookup(codes[0].rawValue);stopCamera()}}catch{}},450)}catch{setMsg('Kamera tidak bisa dibuka. Pastikan izin kamera diberikan dan situs memakai HTTPS.')}}
+ async function lookup(raw:string){const v=normalizeScannedValue(raw);if(!v)return;setBusy(true);setCode(v);setMsg('');try{const r=await fetch('/api/products?barcode='+encodeURIComponent(v));const rows=await r.json();if(rows[0]){setProduct(rows[0]);return}const r2=await fetch('/api/products?q='+encodeURIComponent(v));const rows2=await r2.json();setProduct(rows2[0]||null);if(!rows2[0])setMsg('Produk tidak ditemukan. Tambahkan barcode di menu Produk.')}finally{setBusy(false)}}
+ async function startCamera(){setMsg('');const BD=(window as any).BarcodeDetector;if(!BD){setMsg('Browser ini belum mendukung scan kamera native. Gunakan Chrome/Edge Android, scanner USB, atau input manual.');return}try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});streamRef.current=stream;if(videoRef.current){videoRef.current.srcObject=stream;await videoRef.current.play()}setRunning(true);const wanted=['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code'];const supported=BD.getSupportedFormats?await BD.getSupportedFormats():wanted;const detector=new BD({formats:wanted.filter((x:string)=>supported.includes(x))});timerRef.current=setInterval(async()=>{if(!videoRef.current)return;try{const codes=await detector.detect(videoRef.current);if(codes?.[0]?.rawValue){await lookup(codes[0].rawValue);stopCamera()}}catch{}},450)}catch{setMsg('Kamera tidak bisa dibuka. Pastikan izin kamera diberikan dan situs memakai HTTPS.')}}
  function stopCamera(){if(timerRef.current)clearInterval(timerRef.current);timerRef.current=null;streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null;setRunning(false)}
  function reset(){setProduct(null);setCode('');setMsg('');setTimeout(()=>document.getElementById('scan-input')?.focus(),50)}
  const query=product?`?product=${encodeURIComponent(product.id)}&from=scan&open=1`:'';
- return <><PageHeader title="Scan Barcode" subtitle="Scan sekali, lalu pilih tindakan untuk barang tersebut"/>
+ return <><PageHeader title="Scan Barcode & QR" subtitle="Scan sekali, lalu pilih tindakan untuk barang tersebut"/>
  <div className="scan-wrap scan-v2">
   <section className="video-box scan-camera">
    <video ref={videoRef} muted playsInline/>
    <div className="scan-frame"><i/><i/><i/><i/><span className="scan-line"/></div>
-   {!running&&<div className="camera-placeholder"><div className="camera-icon">⌁</div><strong>Siap scan barcode</strong><span>Gunakan kamera HP, scanner USB, atau input manual</span></div>}
+   {!running&&<div className="camera-placeholder"><div className="camera-icon">⌁</div><strong>Siap scan Barcode / QR Code</strong><span>Kamera dapat membaca barcode garis maupun QR Code</span></div>}
    <div className="camera-actions"><button className="btn btn-blue" onClick={running?stopCamera:startCamera}>{running?'Stop Kamera':'Buka Kamera'}</button></div>
   </section>
   <section className="scan-side">
-   <div className="card scan-search-card"><div className="field"><label>Barcode / SKU</label><div className="scan-input-row"><input id="scan-input" autoFocus value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==='Enter'&&lookup(code)} placeholder="Scan atau ketik barcode..."/><button className="btn btn-light" disabled={busy} onClick={()=>lookup(code)}>{busy?'Mencari...':'Cari'}</button></div></div></div>
+   <div className="card scan-search-card"><div className="field"><label>Barcode / QR / SKU</label><div className="scan-input-row"><input id="scan-input" autoFocus value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==='Enter'&&lookup(code)} placeholder="Scan barcode, QR, atau ketik SKU..."/><button className="btn btn-light" disabled={busy} onClick={()=>lookup(code)}>{busy?'Mencari...':'Cari'}</button></div></div></div>
    {product?<div className="card product-result product-found">
     <div className="product-found-head"><div className="product-avatar">▣</div><div><span className="eyebrow">BARANG DITEMUKAN</span><h2>{product.name}</h2><div className="product-meta"><span>{product.sku}</span><span>{product.barcode||'Tanpa barcode'}</span></div></div><button className="icon-btn" title="Scan ulang" onClick={reset}>↻</button></div>
     <div className="product-stats"><div><span>Stok total</span><strong>{product.total_stock} {product.unit}</strong></div><div><span>Lokasi</span><strong>{product.locations||'-'}</strong></div></div>
