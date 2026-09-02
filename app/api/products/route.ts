@@ -1,77 +1,14 @@
 import { query } from "@/lib/db";
 import {requireApi} from "@/lib/auth-server";
 
-function baseSelect(){
-  return `SELECT p.id,p.sku,p.name,p.barcode,p.category,p.unit,p.min_stock,p.is_active,
-    COALESCE(SUM(i.qty),0)::int total_stock,
-    STRING_AGG(DISTINCT COALESCE(w.name||' / ','')||l.name, ', ') FILTER (WHERE l.id IS NOT NULL) locations
-    FROM products p
-    LEFT JOIN inventory i ON i.product_id=p.id
-    LEFT JOIN locations l ON l.id=i.location_id
-    LEFT JOIN warehouses w ON w.id=l.warehouse_id`;
-}
-
-export async function GET(req:Request){
-  const url=new URL(req.url);
-  const q=url.searchParams.get("q")?.trim();
-  const barcode=url.searchParams.get("barcode")?.trim();
-  const id=url.searchParams.get("id")?.trim();
-  let sql=baseSelect();
-  const params:string[]=[];
-  const wh:string[]=[`p.is_active=TRUE`];
-  if(id){params.push(id);wh.push(`p.id=$${params.length}`)}
-  if(barcode){params.push(barcode);wh.push(`p.barcode=$${params.length}`)}
-  if(q){params.push(`%${q}%`);wh.push(`(p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length} OR COALESCE(p.barcode,'') ILIKE $${params.length})`)}
-  sql+=` WHERE ${wh.join(" AND ")} GROUP BY p.id ORDER BY p.name LIMIT 200`;
-  const r=await query(sql,params);
-  return Response.json(r.rows);
-}
-
-async function duplicateCheck(sku:string,barcode:string,id?:string){
-  const params:any[]=[sku];
-  let exclude='';
-  if(id){params.push(id);exclude=` AND id<>$${params.length}`}
-  const skuRow=await query(`SELECT id FROM products WHERE LOWER(sku)=LOWER($1)${exclude} LIMIT 1`,params);
-  if(skuRow.rowCount)return 'SKU sudah terdaftar. Gunakan SKU lain.';
-  if(barcode){
-    const bp:any[]=[barcode]; let bx='';
-    if(id){bp.push(id);bx=` AND id<>$${bp.length}`}
-    const barRow=await query(`SELECT id FROM products WHERE barcode=$1${bx} LIMIT 1`,bp);
-    if(barRow.rowCount)return 'Barcode/QR sudah terdaftar pada produk lain.';
-  }
-  return '';
-}
-
-export async function POST(req:Request){const auth=await requireApi("products.manage");if(auth.error)return auth.error;
-  const b=await req.json();
-  const sku=(b.sku||'').trim(),name=(b.name||'').trim(),barcode=(b.barcode||'').trim();
-  if(!sku||!name)return Response.json({error:"SKU dan nama wajib"},{status:400});
-  const dup=await duplicateCheck(sku,barcode); if(dup)return Response.json({error:dup},{status:409});
-  try{
-    const r=await query(`INSERT INTO products(sku,name,barcode,category,unit,min_stock,is_active) VALUES($1,$2,NULLIF($3,''),NULLIF($4,''),$5,$6,TRUE) RETURNING *`,[sku,name,barcode,(b.category||'').trim(),b.unit||'pcs',Number(b.min_stock)||0]);
-    return Response.json(r.rows[0],{status:201});
-  }catch(e:any){
-    console.error('POST /api/products',e);
-    return Response.json({error:e?.code==='23505'?'SKU atau barcode sudah digunakan.':'Gagal menyimpan produk.'},{status:400});
-  }
-}
-
-export async function PUT(req:Request){const auth=await requireApi("products.manage");if(auth.error)return auth.error;
-  const b=await req.json();
-  const id=(b.id||'').trim(),sku=(b.sku||'').trim(),name=(b.name||'').trim(),barcode=(b.barcode||'').trim();
-  if(!id||!sku||!name)return Response.json({error:'ID, SKU, dan nama wajib'},{status:400});
-  const dup=await duplicateCheck(sku,barcode,id); if(dup)return Response.json({error:dup},{status:409});
-  const r=await query(`UPDATE products SET sku=$2,name=$3,barcode=NULLIF($4,''),category=NULLIF($5,''),unit=$6,min_stock=$7,updated_at=NOW() WHERE id=$1 AND is_active=TRUE RETURNING *`,[id,sku,name,barcode,(b.category||'').trim(),b.unit||'pcs',Number(b.min_stock)||0]);
-  if(!r.rowCount)return Response.json({error:'Produk tidak ditemukan'},{status:404});
-  return Response.json(r.rows[0]);
-}
-
-export async function DELETE(req:Request){const auth=await requireApi("products.manage");if(auth.error)return auth.error;
-  const id=new URL(req.url).searchParams.get('id')?.trim();
-  if(!id)return Response.json({error:'ID produk wajib'},{status:400});
-  const stock=await query(`SELECT COALESCE(SUM(qty),0)::int qty FROM inventory WHERE product_id=$1`,[id]);
-  if(Number(stock.rows[0]?.qty||0)>0)return Response.json({error:'Produk masih memiliki stok. Kosongkan/pindahkan stok terlebih dahulu sebelum dihapus.'},{status:409});
-  const r=await query(`UPDATE products SET is_active=FALSE,barcode=NULL,updated_at=NOW() WHERE id=$1 AND is_active=TRUE RETURNING id`,[id]);
-  if(!r.rowCount)return Response.json({error:'Produk tidak ditemukan'},{status:404});
-  return Response.json({ok:true});
-}
+function baseSelect(){return `SELECT p.id,p.sku,p.name,p.barcode,p.category,p.unit,p.min_stock,p.is_active,
+ COALESCE(SUM(i.qty),0)::int total_stock,
+ STRING_AGG(DISTINCT COALESCE(w.name||' / ','')||l.name, ', ') FILTER (WHERE l.id IS NOT NULL) locations
+ FROM products p LEFT JOIN inventory i ON i.product_id=p.id AND i.account_id=p.account_id
+ LEFT JOIN locations l ON l.id=i.location_id AND l.account_id=p.account_id
+ LEFT JOIN warehouses w ON w.id=l.warehouse_id AND w.account_id=p.account_id`;}
+export async function GET(req:Request){const a=await requireApi('products.view');if(a.error)return a.error;const account=a.user!.account_id;if(!account)return Response.json([]);const url=new URL(req.url),q=url.searchParams.get('q')?.trim(),barcode=url.searchParams.get('barcode')?.trim(),id=url.searchParams.get('id')?.trim();let sql=baseSelect();const params:any[]=[account];const wh=[`p.account_id=$1`,`p.is_active=TRUE`];if(id){params.push(id);wh.push(`p.id=$${params.length}`)}if(barcode){params.push(barcode);wh.push(`(p.barcode=$${params.length} OR p.sku=$${params.length})`)}if(q){params.push(`%${q}%`);wh.push(`(p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length} OR COALESCE(p.barcode,'') ILIKE $${params.length})`)}sql+=` WHERE ${wh.join(' AND ')} GROUP BY p.id ORDER BY p.name LIMIT 200`;return Response.json((await query(sql,params)).rows)}
+async function duplicateCheck(account:string,sku:string,barcode:string,id?:string){const p:any[]=[account,sku];let ex='';if(id){p.push(id);ex=` AND id<>$${p.length}`}if((await query(`SELECT 1 FROM products WHERE account_id=$1 AND LOWER(sku)=LOWER($2)${ex} LIMIT 1`,p)).rowCount)return 'SKU sudah terdaftar. Gunakan SKU lain.';if(barcode){const bp:any[]=[account,barcode];let bx='';if(id){bp.push(id);bx=` AND id<>$${bp.length}`}if((await query(`SELECT 1 FROM products WHERE account_id=$1 AND barcode=$2${bx} LIMIT 1`,bp)).rowCount)return 'Barcode/QR sudah terdaftar pada produk lain.'}return ''}
+export async function POST(req:Request){const a=await requireApi('products.manage');if(a.error)return a.error;const account=a.user!.account_id;if(!account)return Response.json({error:'Tenant tidak valid'},{status:400});const b=await req.json(),sku=String(b.sku||'').trim(),name=String(b.name||'').trim(),barcode=String(b.barcode||'').trim();if(!sku||!name)return Response.json({error:'SKU dan nama wajib'},{status:400});const dup=await duplicateCheck(account,sku,barcode);if(dup)return Response.json({error:dup},{status:409});try{const r=await query(`INSERT INTO products(account_id,sku,name,barcode,category,unit,min_stock,is_active) VALUES($1,$2,$3,NULLIF($4,''),NULLIF($5,''),$6,$7,TRUE) RETURNING *`,[account,sku,name,barcode,String(b.category||'').trim(),b.unit||'pcs',Number(b.min_stock)||0]);return Response.json(r.rows[0],{status:201})}catch(e:any){return Response.json({error:e?.code==='23505'?'SKU atau barcode sudah digunakan pada akun ini.':'Gagal menyimpan produk.'},{status:400})}}
+export async function PUT(req:Request){const a=await requireApi('products.manage');if(a.error)return a.error;const account=a.user!.account_id!;const b=await req.json(),id=String(b.id||''),sku=String(b.sku||'').trim(),name=String(b.name||'').trim(),barcode=String(b.barcode||'').trim();if(!id||!sku||!name)return Response.json({error:'ID, SKU, dan nama wajib'},{status:400});const dup=await duplicateCheck(account,sku,barcode,id);if(dup)return Response.json({error:dup},{status:409});const r=await query(`UPDATE products SET sku=$3,name=$4,barcode=NULLIF($5,''),category=NULLIF($6,''),unit=$7,min_stock=$8,updated_at=NOW() WHERE account_id=$1 AND id=$2 AND is_active=TRUE RETURNING *`,[account,id,sku,name,barcode,String(b.category||'').trim(),b.unit||'pcs',Number(b.min_stock)||0]);return r.rowCount?Response.json(r.rows[0]):Response.json({error:'Produk tidak ditemukan'},{status:404})}
+export async function DELETE(req:Request){const a=await requireApi('products.manage');if(a.error)return a.error;const account=a.user!.account_id!,id=new URL(req.url).searchParams.get('id');if(!id)return Response.json({error:'ID produk wajib'},{status:400});const stock=await query(`SELECT COALESCE(SUM(qty),0)::int qty FROM inventory WHERE account_id=$1 AND product_id=$2`,[account,id]);if(Number(stock.rows[0]?.qty||0)>0)return Response.json({error:'Produk masih memiliki stok.'},{status:409});const r=await query(`UPDATE products SET is_active=FALSE,barcode=NULL,updated_at=NOW() WHERE account_id=$1 AND id=$2 AND is_active=TRUE RETURNING id`,[account,id]);return r.rowCount?Response.json({ok:true}):Response.json({error:'Produk tidak ditemukan'},{status:404})}

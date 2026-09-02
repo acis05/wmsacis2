@@ -114,3 +114,7 @@ Catatan hak akses: bila role seorang user diubah saat user tersebut sedang login
 - Tombol Logout eksplisit di bagian bawah sidebar.
 - Logout menghapus session cookie HttpOnly melalui `/api/auth/logout` dan kembali ke halaman login.
 - Tampil konsisten di desktop, tablet, dan mobile.
+
+
+## V16 — Multi-tenant isolation
+Setiap akun/perusahaan trial memiliki `account_id` sendiri. Semua produk, gudang, rak, stok, transaksi, packing list, laporan, dan konfigurasi AOLINX difilter berdasarkan tenant. Akun trial baru dimulai dengan data operasional kosong. Data lama saat upgrade otomatis dikaitkan ke akun perusahaan pertama agar tidak hilang.

@@ -1,27 +1,3 @@
-import {query} from '@/lib/db';
-
-export async function GET(){
-  const r=await query(`SELECT l.id,l.code,l.name,l.warehouse_id,w.name warehouse_name,w.code warehouse_code
-    FROM locations l LEFT JOIN warehouses w ON w.id=l.warehouse_id
-    ORDER BY w.name,l.code`);
-  return Response.json(r.rows);
-}
-
-export async function POST(req:Request){
-  const b=await req.json();
-  const code=String(b.code||'').trim().toUpperCase();
-  const name=String(b.name||'').trim();
-  const warehouseId=String(b.warehouse_id||'').trim();
-  if(!code||!name||!warehouseId)return Response.json({error:'Kode rak, nama rak, dan gudang wajib diisi.'},{status:400});
-  try{
-    const wh=await query(`SELECT id FROM warehouses WHERE id=$1`,[warehouseId]);
-    if(!wh.rowCount)return Response.json({error:'Gudang yang dipilih tidak ditemukan. Refresh halaman lalu pilih kembali.'},{status:404});
-    const r=await query(`INSERT INTO locations(code,name,warehouse_id) VALUES($1,$2,$3) RETURNING *`,[code,name,warehouseId]);
-    return Response.json(r.rows[0],{status:201});
-  }catch(e:any){
-    console.error('POST /api/locations',e);
-    if(e?.code==='23505')return Response.json({error:`Kode rak ${code} sudah digunakan di gudang tersebut.`},{status:409});
-    if(e?.code==='23503')return Response.json({error:'Gudang yang dipilih tidak valid.'},{status:400});
-    return Response.json({error:`Gagal menambah rak${e?.message?`: ${e.message}`:''}`},{status:500});
-  }
-}
+import {query} from '@/lib/db';import {requireApi} from '@/lib/auth-server';
+export async function GET(){const a=await requireApi('stock.view');if(a.error)return a.error;const account=a.user!.account_id;if(!account)return Response.json([]);const r=await query(`SELECT l.id,l.code,l.name,l.warehouse_id,w.name warehouse_name,w.code warehouse_code FROM locations l LEFT JOIN warehouses w ON w.id=l.warehouse_id AND w.account_id=l.account_id WHERE l.account_id=$1 ORDER BY w.name,l.code`,[account]);return Response.json(r.rows)}
+export async function POST(req:Request){const a=await requireApi('warehouses.manage');if(a.error)return a.error;const account=a.user!.account_id!;const b=await req.json(),code=String(b.code||'').trim().toUpperCase(),name=String(b.name||'').trim(),warehouseId=String(b.warehouse_id||'').trim();if(!code||!name||!warehouseId)return Response.json({error:'Kode rak, nama rak, dan gudang wajib diisi.'},{status:400});try{if(!(await query(`SELECT 1 FROM warehouses WHERE account_id=$1 AND id=$2`,[account,warehouseId])).rowCount)return Response.json({error:'Gudang tidak ditemukan pada akun ini.'},{status:404});const r=await query(`INSERT INTO locations(account_id,code,name,warehouse_id) VALUES($1,$2,$3,$4) RETURNING *`,[account,code,name,warehouseId]);return Response.json(r.rows[0],{status:201})}catch(e:any){return Response.json({error:e?.code==='23505'?`Kode rak ${code} sudah digunakan di gudang tersebut.`:`Gagal menambah rak: ${e.message||''}`},{status:e?.code==='23505'?409:500})}}

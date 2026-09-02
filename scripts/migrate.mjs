@@ -28,8 +28,54 @@ CREATE INDEX IF NOT EXISTS idx_app_users_email ON app_users(lower(email));
 INSERT INTO app_roles(code,name,is_system,permissions) VALUES('SUPERADMIN','Super Administrator',TRUE,'["*"]'::jsonb) ON CONFLICT(code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS integration_settings(id VARCHAR(40) PRIMARY KEY,enabled BOOLEAN NOT NULL DEFAULT FALSE,client_id TEXT,client_secret TEXT,access_token TEXT,refresh_token TEXT,database_id TEXT,last_sync_at TIMESTAMPTZ,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
-INSERT INTO integration_settings(id) VALUES('aolinx') ON CONFLICT(id) DO NOTHING;
-INSERT INTO warehouses(code,name) VALUES('WH-UTAMA','Gudang Utama') ON CONFLICT(code) DO NOTHING;
-UPDATE locations SET warehouse_id=(SELECT id FROM warehouses WHERE code='WH-UTAMA' LIMIT 1) WHERE warehouse_id IS NULL;
+
+-- V16 multi-tenant isolation
+ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE stock_operations ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE packing_lists ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE packing_list_items ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES app_accounts(id) ON DELETE CASCADE;
+
+DO $$ DECLARE first_account UUID; BEGIN
+  SELECT id INTO first_account FROM app_accounts ORDER BY created_at LIMIT 1;
+  IF first_account IS NOT NULL THEN
+    UPDATE warehouses SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE locations SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE products SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE inventory SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE stock_operations SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE stock_movements SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE packing_lists SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE packing_list_items SET account_id=first_account WHERE account_id IS NULL;
+    UPDATE integration_settings SET account_id=first_account WHERE account_id IS NULL;
+  END IF;
+END $$;
+
+ALTER TABLE warehouses DROP CONSTRAINT IF EXISTS warehouses_code_key;
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_sku_key;
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_barcode_key;
+ALTER TABLE stock_operations DROP CONSTRAINT IF EXISTS stock_operations_operation_no_key;
+ALTER TABLE packing_lists DROP CONSTRAINT IF EXISTS packing_lists_packing_no_key;
+ALTER TABLE integration_settings DROP CONSTRAINT IF EXISTS integration_settings_pkey;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_warehouses_account_code ON warehouses(account_id,code);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_products_account_sku ON products(account_id,LOWER(sku));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_products_account_barcode ON products(account_id,barcode) WHERE barcode IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_operations_account_no ON stock_operations(account_id,operation_no);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_packing_account_no ON packing_lists(account_id,packing_no);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_integration_account_id ON integration_settings(account_id,id);
+CREATE INDEX IF NOT EXISTS idx_products_account ON products(account_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_account ON inventory(account_id);
+CREATE INDEX IF NOT EXISTS idx_operations_account ON stock_operations(account_id);
+CREATE INDEX IF NOT EXISTS idx_movements_account ON stock_movements(account_id);
+CREATE INDEX IF NOT EXISTS idx_warehouses_account ON warehouses(account_id);
+CREATE INDEX IF NOT EXISTS idx_locations_account ON locations(account_id);
+CREATE INDEX IF NOT EXISTS idx_packing_account ON packing_lists(account_id);
+
+-- Tenant-specific AOLINX and warehouse rows are created on demand per account.
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode); CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC); CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);`);
-console.log('Migration V14 selesai: schema inventory + auth/trial/roles + packing list siap.'); await client.end();
+console.log('Migration V16 selesai: multi-tenant isolation + auth/trial/roles + packing list siap.'); await client.end();
