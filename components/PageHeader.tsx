@@ -1,0 +1,1 @@
+export default function PageHeader({title,subtitle}:{title:string;subtitle?:string}){return <div className="topbar"><div><h1 className="title">{title}</h1>{subtitle&&<div className="muted">{subtitle}</div>}</div></div>}
