@@ -67,3 +67,9 @@ Pada V6, `npm run start` akan menjalankan `npm run db:migrate` terlebih dahulu s
 - Stok per Rak/Lokasi.
 - Filter tanggal, produk, gudang, rak, dan jenis transaksi.
 - Export CSV dari laporan yang sedang ditampilkan.
+
+
+## V12
+- Perbaikan master Gudang dan Rak: form submit stabil, error API lebih jelas, reload data otomatis setelah simpan.
+- Kode rak sekarang unik per gudang (A-01 boleh digunakan pada gudang berbeda).
+- Validasi gudang sebelum menambah rak.

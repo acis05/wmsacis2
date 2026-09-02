@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS locations(
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;
+ALTER TABLE locations DROP CONSTRAINT IF EXISTS locations_code_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_locations_warehouse_code ON locations(warehouse_id,code);
 CREATE TABLE IF NOT EXISTS products(
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sku VARCHAR(80) NOT NULL UNIQUE,
