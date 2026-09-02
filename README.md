@@ -108,3 +108,9 @@ SUPERADMIN_PASSWORD=password-yang-kuat
 User dapat klik **Mulai Trial Gratis 7 Hari** dari halaman login. Setelah 7 hari, akses operasional diblokir sampai trial diperpanjang/akun diaktifkan oleh Super Admin.
 
 Catatan hak akses: bila role seorang user diubah saat user tersebut sedang login, lakukan logout/login agar permission pada session cookie diperbarui.
+
+
+## V15 - Logout
+- Tombol Logout eksplisit di bagian bawah sidebar.
+- Logout menghapus session cookie HttpOnly melalui `/api/auth/logout` dan kembali ke halaman login.
+- Tampil konsisten di desktop, tablet, dan mobile.
