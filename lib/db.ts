@@ -72,6 +72,34 @@ CREATE TABLE IF NOT EXISTS stock_movements(
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS operation_id UUID REFERENCES stock_operations(id) ON DELETE CASCADE;
+CREATE TABLE IF NOT EXISTS packing_lists(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  packing_no VARCHAR(50) NOT NULL UNIQUE,
+  recipient_name VARCHAR(160) NOT NULL,
+  recipient_company VARCHAR(160),
+  recipient_phone VARCHAR(80),
+  address TEXT,
+  reference VARCHAR(120),
+  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK(status IN('DRAFT','PACKED','SHIPPED','CANCELLED')),
+  notes TEXT,
+  packed_by VARCHAR(120) NOT NULL DEFAULT 'Admin Gudang',
+  packed_at TIMESTAMPTZ,
+  shipped_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS packing_list_items(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  packing_list_id UUID NOT NULL REFERENCES packing_lists(id) ON DELETE CASCADE,
+  operation_id UUID UNIQUE REFERENCES stock_operations(id) ON DELETE SET NULL,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
+  qty INTEGER NOT NULL CHECK(qty>0),
+  unit VARCHAR(30) NOT NULL DEFAULT 'pcs',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_packing_lists_created_at ON packing_lists(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_packing_items_list ON packing_list_items(packing_list_id);
 CREATE TABLE IF NOT EXISTS integration_settings(
   id VARCHAR(40) PRIMARY KEY,
   enabled BOOLEAN NOT NULL DEFAULT FALSE,

@@ -73,3 +73,12 @@ Pada V6, `npm run start` akan menjalankan `npm run db:migrate` terlebih dahulu s
 - Perbaikan master Gudang dan Rak: form submit stabil, error API lebih jelas, reload data otomatis setelah simpan.
 - Kode rak sekarang unik per gudang (A-01 boleh digunakan pada gudang berbeda).
 - Validasi gudang sebelum menambah rak.
+
+## V13 - Packing List
+- Menu Packing List terhubung dengan transaksi Barang Keluar.
+- Satu packing list dapat berisi beberapa transaksi Barang Keluar.
+- Status: Draft, Packed, Shipped, Cancelled.
+- Data penerima, perusahaan, telepon, alamat, referensi, petugas, catatan.
+- Preview dan cetak packing list.
+- Transaksi Barang Keluar yang sudah dipakai tidak dapat dimasukkan ke packing list lain.
+- Menghapus packing list tidak mengubah stok karena dokumen packing hanya mengelompokkan transaksi OUT yang sudah terjadi.
