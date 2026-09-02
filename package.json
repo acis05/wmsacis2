@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/prepare-standalone.mjs",
     "start": "HOSTNAME=0.0.0.0 node .next/standalone/server.js",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs"
