@@ -40,3 +40,7 @@ npm run dev
 
 ## AOLINX / Accurate Online
 Halaman `/aolinx` adalah connector layer awal. Jangan commit Client Secret atau token ke GitHub. Untuk production, simpan credential sebagai Railway Variables dan lanjutkan implementasi OAuth/API Accurate Online menggunakan credential aplikasi resmi.
+
+
+## Railway V6 migration safety
+Pada V6, `npm run start` akan menjalankan `npm run db:migrate` terlebih dahulu sebelum Next.js server aktif. Ini memastikan database runtime yang sama selalu memiliki tabel `products`, `locations`, `inventory`, dan tabel transaksi. Migration aman dijalankan berulang karena bersifat idempotent.

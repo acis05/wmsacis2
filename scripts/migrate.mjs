@@ -1,7 +1,10 @@
 import pg from "pg"; const {Client}=pg;
 if(!process.env.DATABASE_URL) throw new Error("DATABASE_URL wajib diisi");
 const client=new Client({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==="production"?{rejectUnauthorized:false}:undefined}); await client.connect();
-await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;
+const info = await client.query("SELECT current_database() AS db, current_schema() AS schema");
+console.log(`Migrating database: ${info.rows[0].db}, schema: ${info.rows[0].schema}`);
+await client.query(`SET search_path TO public;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS warehouses(id UUID PRIMARY KEY DEFAULT gen_random_uuid(),code VARCHAR(50) NOT NULL UNIQUE,name VARCHAR(140) NOT NULL,address TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS locations(id UUID PRIMARY KEY DEFAULT gen_random_uuid(),code VARCHAR(50) NOT NULL UNIQUE,name VARCHAR(120) NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;
@@ -15,4 +18,4 @@ INSERT INTO integration_settings(id) VALUES('aolinx') ON CONFLICT(id) DO NOTHING
 INSERT INTO warehouses(code,name) VALUES('WH-UTAMA','Gudang Utama') ON CONFLICT(code) DO NOTHING;
 UPDATE locations SET warehouse_id=(SELECT id FROM warehouses WHERE code='WH-UTAMA' LIMIT 1) WHERE warehouse_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode); CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC); CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);`);
-console.log('Migration V5 selesai.'); await client.end();
+console.log('Migration V6 selesai: schema inventory siap.'); await client.end();
