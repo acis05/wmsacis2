@@ -1,3 +1,16 @@
+# WMS ACIS V22
+
+Update V22:
+- Semua transaksi operasional mempunyai nomor dokumen dan tanggal transaksi eksplisit.
+- Nomor dapat diisi manual atau dibiarkan kosong untuk nomor otomatis.
+- Barang Masuk, Barang Keluar, Pindah Gudang, Pindah Rak: No. Transaksi + Tanggal Transaksi.
+- Receiving Plan / PO: No. PO + Tanggal PO.
+- Picking List: No. Picking + Tanggal Picking.
+- Packing List: No. Packing + Tanggal Packing.
+- Stock Opname sekarang memiliki No. Opname, Tanggal Transaksi, dan riwayat dokumen opname.
+- Scan Barcode / QR mempunyai action **Buat Picking** dan produk hasil scan otomatis masuk sebagai item pertama Picking List.
+- Backup tenant ikut membawa dokumen Stock Opname.
+
 # WMS ACIS V8
 
 MVP inventory/WMS cloud berbasis Next.js + PostgreSQL, disiapkan untuk GitHub dan Railway.

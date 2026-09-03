@@ -241,5 +241,29 @@ CREATE INDEX IF NOT EXISTS idx_movements_company ON stock_movements(account_id,c
 CREATE INDEX IF NOT EXISTS idx_inventory_company ON inventory(account_id,company_id,location_id);
 UPDATE app_roles SET permissions=CASE WHEN permissions ? 'companies.manage' THEN permissions ELSE permissions || '["companies.manage"]'::jsonb END,updated_at=NOW() WHERE code LIKE 'OWNER-%';
 
+
+-- V22: explicit document number + transaction date on all transaction menus
+ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS po_date DATE NOT NULL DEFAULT CURRENT_DATE;
+ALTER TABLE picking_lists ADD COLUMN IF NOT EXISTS picking_date DATE NOT NULL DEFAULT CURRENT_DATE;
+ALTER TABLE packing_lists ADD COLUMN IF NOT EXISTS packing_date DATE NOT NULL DEFAULT CURRENT_DATE;
+
+CREATE TABLE IF NOT EXISTS stocktakes(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+  stocktake_no VARCHAR(60) NOT NULL,
+  transaction_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  system_qty INTEGER NOT NULL,
+  actual_qty INTEGER NOT NULL CHECK(actual_qty>=0),
+  diff_qty INTEGER NOT NULL,
+  note TEXT,
+  actor VARCHAR(140),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_stocktakes_account_no ON stocktakes(account_id,stocktake_no);
+CREATE INDEX IF NOT EXISTS idx_stocktakes_account_date ON stocktakes(account_id,transaction_date DESC);
+
 `);
-console.log('Migration V21 selesai: Company dan stok per perusahaan siap.'); await client.end();
+console.log('Migration V22 selesai: nomor dan tanggal transaksi + scan ke picking siap.'); await client.end();

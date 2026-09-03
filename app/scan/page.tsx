@@ -10,6 +10,7 @@ const actions=[
   {href:'/rack-transfer',icon:'↔',title:'Pindah Rak',desc:'Relokasi dalam gudang yang sama',tone:'blue'},
   {href:'/warehouse-transfer',icon:'⇄',title:'Pindah Gudang',desc:'Transfer ke gudang lain',tone:'purple'},
   {href:'/stock-opname',icon:'✓',title:'Stock Opname',desc:'Cocokkan stok fisik dan sistem',tone:'amber'},
+  {href:'/picking-list',icon:'☑',title:'Buat Picking',desc:'Tambahkan barang ini ke Picking List',tone:'green'},
   {href:'/stock',icon:'◫',title:'Lihat Stok',desc:'Lihat detail stok per lokasi',tone:'slate'},
 ] as const;
 
