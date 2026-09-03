@@ -131,3 +131,41 @@ Setiap akun/perusahaan trial memiliki `account_id` sendiri. Semua produk, gudang
 - Memulihkan account_id Super Admin lama ke tenant yang menyimpan data operasional lama.
 - Session lama dengan account_id kosong dihydrate dari database.
 - Trial baru tetap terisolasi dan mulai dari data kosong.
+
+
+## V19 - Backup / Export Tenant & Restore Tenant
+
+Menu **Backup & Restore** tersedia untuk Owner/Super Admin atau role dengan permission `tenant.backup`. Export menghasilkan file JSON portable yang berisi data operasional tenant. Restore mengganti data operasional tenant target tetapi tidak menghapus akun login/role pada tenant target.
+
+### Backup dari UI
+1. Login sebagai Owner/Super Admin.
+2. Buka **Backup & Restore**.
+3. Klik **Download Backup Tenant**.
+4. Simpan file JSON di tempat aman.
+
+### Restore dari UI
+1. Login ke tenant tujuan.
+2. Buka **Backup & Restore**.
+3. Pilih file JSON hasil export.
+4. Klik **Restore Tenant** dan setujui konfirmasi.
+5. Refresh dashboard setelah restore selesai.
+
+Catatan: konfigurasi AOLINX ikut di-backup dan dapat mengandung credential/token. Perlakukan file backup sebagai data rahasia.
+
+
+## V20 — Tahap 1 WMS
+- Receiving Plan / Purchase Order dengan partial receiving dan auto Barang Masuk.
+- Picking List dengan auto Barang Keluar saat Complete Picking, lalu siap dipakai Packing List.
+- Import Excel/CSV: Produk, Gudang, Rak, Stok Awal.
+- Audit Log multi-tenant.
+- Permission baru: receiving.view/manage, picking.view/manage, import.manage, audit.view.
+
+### Template Import
+- Produk: `sku,name,barcode,category,unit,min_stock`
+- Gudang: `code,name,address`
+- Rak: `warehouse_code,code,name`
+- Stok awal: `sku,warehouse_code,location_code,qty`
+
+
+## V21 — Multi Company
+Satu tenant/grup dapat memiliki beberapa Company. Gudang dan rak dapat dipakai bersama, tetapi inventory dan seluruh transaksi stok dipisahkan berdasarkan `company_id`. Data legacy otomatis dimasukkan ke Company `MAIN`.

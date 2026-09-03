@@ -78,6 +78,9 @@ CREATE INDEX IF NOT EXISTS idx_packing_account ON packing_lists(account_id);
 
 -- Tenant-specific AOLINX and warehouse rows are created on demand per account.
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode); CREATE INDEX IF NOT EXISTS idx_movements_created_at ON stock_movements(created_at DESC); CREATE INDEX IF NOT EXISTS idx_operations_date ON stock_operations(operation_date DESC);
+-- V19: owner lama otomatis mendapat hak Backup & Restore Tenant.
+UPDATE app_roles SET permissions = CASE WHEN permissions ? 'tenant.backup' THEN permissions ELSE permissions || '["tenant.backup"]'::jsonb END, updated_at=NOW() WHERE code LIKE 'OWNER-%';
+
 
 -- V18: kaitkan Super Admin legacy ke tenant yang menyimpan data lama.
 DO $$
@@ -109,5 +112,134 @@ BEGIN
   UPDATE app_users
   SET account_id=legacy_account, company=COALESCE(NULLIF(company,''),'WMS ACIS'), updated_at=NOW()
   WHERE account_id IS NULL AND is_super_admin=TRUE;
-END $$;`);
-console.log('Migration V18 selesai: legacy tenant recovery + multi-tenant siap.'); await client.end();
+END $$;
+
+-- V20 Stage 1: Receiving Plan / PO, Picking List, Audit Log.
+CREATE TABLE IF NOT EXISTS purchase_orders(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  po_no VARCHAR(60) NOT NULL,
+  supplier VARCHAR(180) NOT NULL,
+  reference VARCHAR(120),
+  status VARCHAR(20) NOT NULL DEFAULT 'OPEN' CHECK(status IN('DRAFT','OPEN','PARTIAL','COMPLETED','CANCELLED')),
+  expected_date DATE,
+  notes TEXT,
+  created_by VARCHAR(140),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS purchase_order_items(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  purchase_order_id UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  ordered_qty INTEGER NOT NULL CHECK(ordered_qty>0),
+  received_qty INTEGER NOT NULL DEFAULT 0 CHECK(received_qty>=0),
+  unit VARCHAR(30) NOT NULL DEFAULT 'pcs',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_order_account_no ON purchase_orders(account_id,po_no);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_account ON purchase_orders(account_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po ON purchase_order_items(account_id,purchase_order_id);
+
+CREATE TABLE IF NOT EXISTS picking_lists(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  picking_no VARCHAR(60) NOT NULL,
+  reference VARCHAR(120),
+  customer_name VARCHAR(180),
+  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK(status IN('DRAFT','PICKING','PICKED','CANCELLED')),
+  notes TEXT,
+  picked_by VARCHAR(140),
+  picked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS picking_list_items(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  picking_list_id UUID NOT NULL REFERENCES picking_lists(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  source_location_id UUID NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  requested_qty INTEGER NOT NULL CHECK(requested_qty>0),
+  picked_qty INTEGER NOT NULL DEFAULT 0 CHECK(picked_qty>=0),
+  operation_id UUID REFERENCES stock_operations(id) ON DELETE SET NULL,
+  unit VARCHAR(30) NOT NULL DEFAULT 'pcs',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_picking_account_no ON picking_lists(account_id,picking_no);
+CREATE INDEX IF NOT EXISTS idx_picking_lists_account ON picking_lists(account_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_picking_items_list ON picking_list_items(account_id,picking_list_id);
+
+CREATE TABLE IF NOT EXISTS audit_logs(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES app_users(id) ON DELETE SET NULL,
+  user_name VARCHAR(140),
+  action VARCHAR(40) NOT NULL,
+  entity_type VARCHAR(80) NOT NULL,
+  entity_id VARCHAR(120),
+  description TEXT,
+  before_data JSONB,
+  after_data JSONB,
+  ip_address VARCHAR(100),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_account_created ON audit_logs(account_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(account_id,entity_type,entity_id);
+
+UPDATE app_roles SET permissions = permissions || '["receiving.view","receiving.manage","picking.view","picking.manage","import.manage","audit.view"]'::jsonb, updated_at=NOW()
+WHERE code LIKE 'OWNER-%' AND NOT permissions ? 'receiving.view';
+
+
+-- V21: multi-company dalam satu tenant. Gudang/rak shared, stok dipisahkan per company.
+CREATE TABLE IF NOT EXISTS companies(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES app_accounts(id) ON DELETE CASCADE,
+  code VARCHAR(60) NOT NULL,
+  name VARCHAR(180) NOT NULL,
+  tax_id VARCHAR(100),
+  address TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_companies_account_code ON companies(account_id,LOWER(code));
+CREATE INDEX IF NOT EXISTS idx_companies_account ON companies(account_id,is_active,name);
+
+-- Buat company default untuk tenant existing agar data lama tetap terlihat.
+INSERT INTO companies(account_id,code,name)
+SELECT a.id,'MAIN',a.name FROM app_accounts a
+WHERE NOT EXISTS(SELECT 1 FROM companies c WHERE c.account_id=a.id);
+
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE RESTRICT;
+ALTER TABLE stock_operations ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE RESTRICT;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE RESTRICT;
+ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE RESTRICT;
+ALTER TABLE picking_lists ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE RESTRICT;
+ALTER TABLE packing_lists ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE RESTRICT;
+
+UPDATE inventory i SET company_id=(SELECT c.id FROM companies c WHERE c.account_id=i.account_id ORDER BY c.created_at LIMIT 1) WHERE company_id IS NULL;
+UPDATE stock_operations o SET company_id=(SELECT c.id FROM companies c WHERE c.account_id=o.account_id ORDER BY c.created_at LIMIT 1) WHERE company_id IS NULL;
+UPDATE stock_movements m SET company_id=(SELECT c.id FROM companies c WHERE c.account_id=m.account_id ORDER BY c.created_at LIMIT 1) WHERE company_id IS NULL;
+UPDATE purchase_orders p SET company_id=(SELECT c.id FROM companies c WHERE c.account_id=p.account_id ORDER BY c.created_at LIMIT 1) WHERE company_id IS NULL;
+UPDATE picking_lists p SET company_id=(SELECT c.id FROM companies c WHERE c.account_id=p.account_id ORDER BY c.created_at LIMIT 1) WHERE company_id IS NULL;
+UPDATE packing_lists p SET company_id=(SELECT c.id FROM companies c WHERE c.account_id=p.account_id ORDER BY c.created_at LIMIT 1) WHERE company_id IS NULL;
+
+-- Inventory sebelumnya unik product+location. V21 harus unik company+product+location.
+ALTER TABLE inventory DROP CONSTRAINT IF EXISTS inventory_pkey;
+DROP INDEX IF EXISTS uq_inventory_account_company_product_location;
+CREATE UNIQUE INDEX uq_inventory_account_company_product_location ON inventory(account_id,company_id,product_id,location_id);
+ALTER TABLE inventory ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE stock_operations ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE stock_movements ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE purchase_orders ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE picking_lists ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE packing_lists ALTER COLUMN company_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_operations_company ON stock_operations(account_id,company_id,operation_date DESC);
+CREATE INDEX IF NOT EXISTS idx_movements_company ON stock_movements(account_id,company_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inventory_company ON inventory(account_id,company_id,location_id);
+UPDATE app_roles SET permissions=CASE WHEN permissions ? 'companies.manage' THEN permissions ELSE permissions || '["companies.manage"]'::jsonb END,updated_at=NOW() WHERE code LIKE 'OWNER-%';
+
+`);
+console.log('Migration V21 selesai: Company dan stok per perusahaan siap.'); await client.end();
