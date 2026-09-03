@@ -169,5 +169,3 @@ Catatan: konfigurasi AOLINX ikut di-backup dan dapat mengandung credential/token
 
 ## V21 — Multi Company
 Satu tenant/grup dapat memiliki beberapa Company. Gudang dan rak dapat dipakai bersama, tetapi inventory dan seluruh transaksi stok dipisahkan berdasarkan `company_id`. Data legacy otomatis dimasukkan ke Company `MAIN`.
-
-WMS ACIS V21 Fixed
